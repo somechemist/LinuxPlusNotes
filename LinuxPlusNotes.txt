@@ -1,0 +1,587 @@
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////Justin Powell-Linux+ Notes/////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////03-28-2021/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+*Based on ITProTV*
+
+Commands will generally be shown as `command <input>`
+Often, commands will be shown in a basic form with their switches below them
+# will follow many commands and switches to explain what they do while differentiating that text from the command syntax
+proper names, like root, will be in the normal case
+paths will be exact, generic "/path/to/file", or sometimes approximate etc/passwd because I get lazy
+
+#########################################################################################################################################
+#################################################### Super User Privileges ##############################################################
+#########################################################################################################################################
+
+root is the default super user
+You should not login as root. This is a security risk.
+You will need super users permissions to make system changes or make changes to other users.
+`su <user>` #change users without changing directory
+`su - <user>` #change users, by creating a new login session as that user. This changes the directory
+`su` #login as root in current directory
+`su -` #login as root in the /root directory
+`exit` #exit from the current user session
+`sudo` #run command as a super user
+`visudo` #open up and edit /etc/sudoers file
+        note: in this file "%" means group
+        <user>                  ALL=(ALL)                       NOPASSWD:ALL
+        define user     define command(s)       No password needed to run these commands
+
+        bob     ALL=/sbin/mount /dev/cdrom      NOPASSWD:ALL
+        #Here bob is able to run sbin/mount in the /dev/cdrom directory without using a password. You can separate commands with ","
+`sudoedit` /file/path #lets you sudo edit the file in the given path
+NOTE: Always give users the least ammount of privilege they need to do their job
+
+#########################################################################################################################################
+##################################################### Managing Users and Groups #########################################################
+#########################################################################################################################################
+
+Users and groups are managed administratively.
+
+`useradd` <user name> #creates a user and assignes them an ID
+-c #add a comment to the user (this is generally their name)
+-e #expiration date in the YYYY/MM/DD format
+-s #provide a path to the shell they should use
+-d /home/<user-dir> #assigns a home directory to the user
+-D #shows the defaults
+
+`passwd <user>` #set password for the given user. The has for these passwords is stored in /etc/shadow
+
+`chage <user>` #lets you changes password age information for a user
+-l #list details about the user
+
+`usermod [switch] <user>` #make changes to an exisiting user
+-a #append a change to a user. for example you use -aG to add a group to a users group list. without appending, it will replace the old
+-c #comments
+-l <new username> <current username> #change the users username
+
+`userdel <user>` #deletes a user but not their files
+-r #recursively deletes the user so it includes their home directory and files
+
+Defaults are located in various places
+        /etc/skel
+        /etc/logins.def
+        /etc/defaults
+
+User information is found in various places
+        /etc/passwd
+        /etc/shadow
+        /etc/group
+
+`getent <entity type> <entity>` #shows the entity information (passwd, group, etc.) for the given entity (user or group)
+
+Groups are added in various ways
+
+`groupadd <group>` #creates the given group
+
+You can add users to groups with `usermod -aG` but alterntively:
+
+`gpasswd <group>` #technically used to set passwords for the group.
+-a #add a new user to the group
+-d #remove a user from the group
+-A #add a user to the group as an administrator
+
+generally your primary group is the one you will default to. Therefore, if you are in the sales group, but need to write to a file that only
+has write permissions for the sales group, it will fail.
+
+`newgrp <group>` #allows you to login to the specified group
+
+
+#########################################################################################################################################
+###################################################### Managing File Permissions ########################################################
+#########################################################################################################################################
+
+--Normal Permissions--
+
+PENDING NOTES TRANSFER
+
+--Advanced Permissions--
+
+Biggest limitation with "basic" permissions is that we can only have one user and one group per file
+Imagine having a sales and marketing group. You need them both to have access to a file which is assigned to sales.
+Using basic permissions you would only have access to the "other" permissions to give marketing access. Obviously,
+this would give access to ANY other group.
+
+still have u,g,o for simple stuff
+but you can have a facl(file access control list) does is create additional ownerships for a file
+most distro support facl but may not have it turned on
+centos and ubuntu have it by default
+
+facl is not a service, it is part of the file system
+
+fstab(file system table)
+ex. format
+UUID    mount/point     file-system-type        file-system-options     number  number
+lets say your filesystem options are set to "default". To enable facl, you change it to "defaults,facl" then unmount and remount the disk 
+(reboot if /root).
+
+`getfacl` #view facl for a file
+
+`setfacl` #set or modify facl
+`-m u:<user2>:r file` #to modify (appends old)
+`-s o::rw file` #to set the permission (overwrites old)
+`-m d:g:marketing:r Dir` #to change/set permissions on a directory, start with `d:`
+
+when something has a facl, you will see a "+" in `ls -l` which you can view with `getfacl file`
+
+sticky bits
+t shows up in `ls -l` when you have a sticky bit
+assigns permissions like only letting the owner delete
+chmod o+t Dir
+now only the owner can delete the file or root
+sticky bits are directory behaviors. So files within that directory will follow these rules.
+
+#########################################################################################################################################
+##################################################### Partitioning Disk #################################################################
+#########################################################################################################################################
+
+Master Boot Record is an old method to tell the system about the drives data. It had to be in the first few blocks due to limitations on
+on the HDD used
+
+MBR is not really common to use today. MBR systems are limited to four partitions (which is a pain for linux)
+
+There was a workaround for the 4 partion limit by making an extended partition which is a primary partition with various logical partions 
+inside of them 
+
+To modify MBR partition:
+
+lsblk (list block devices [i.e. devices with storage blocks]). Use this to identify disk and partitions
+
+`sudo fdisk -l /dev/sdb` #tells you about the disk
+`sudo fdisk /dev/sdb` #takes you to fdisk editor
+m #help
+n #new
+        p #primary (4 max for MBR)
+        e #extended
+                (accept defaults with enter key)
+                typing +500G for last sector would make a 500G partition (enter here runs to the last sector to use whole disk)
+d #delete
+p #prints partition table
+        id=83 means it will be used for linux
+        id=82 means it will be used for a swap partition
+t #changes partition type
+        select partition
+                l #shows all codes
+                enter the code you want
+w #saves (changes don't take effect until you hit w)
+
+
+GPT (Global unique identifier Partition Table) allows for up to 128 partitions on a disk (uses a newer addressing method)
+
+To modify GPT partition:
+
+`sudo gdisk /dev/sdb`
+? #help
+n #new
+        no need to specify if primary
+        press enter for defaults
+        or specify default start
+        specify final for size as with fdisk or press enter for whole disk
+                Shows the default type of 8300 for Linux
+                press L to see other options
+                ex. 8200 would make it a swap, 8302 would be Linx /home
+p #print
+w #save
+
+Swap partitions are used to write ram to disk to hibernate and prevent out of memory events. 
+
+parted #(partition editor, can do MBR and GPT)
+
+`sudo parted /dev/sdb`
+
+help #show options
+you can resize partitions with `parted` but this is better done with file system (LVM is king IMO)
+
+There are GUI options
+        disk utility in gnome for example
+
+Partitions are useless until they have file systems
+
+#########################################################################################################################################
+##################################################### Linux File System #################################################################
+#########################################################################################################################################
+
+To choose a file system, you need to understand your needs before-hand. 
+
+Default for some systems like ubuntu will default to ext4
+
+Centos will default to xfs
+
+Some use zfs, btrfs, etc. 
+
+ext is really common amongst linux file systems. It is a very mature file system that has been around for a long time.
+
+ext4 has journaling support by default. So it writes to a second place on the disk when changing a file. This way, if power failure
+occurs while writting to a file, it will not corrupt the existing file.
+
+xfs uses a different file driver than ext4
+
+both support thousands of files, large files, etc.
+
+since xfs is commercially supported, it is rather stable
+
+btrfs has a lot of the same features used in with LVM, but it has the potential for data loss and is therefore not used for many
+production environments. Note: has software raid features
+
+Ubuntu will support btrfs while Redhat/CentOS will not allow it
+
+btrfs will likely be the future when all the bugs are worked out.
+
+
+`mkfs [] <block device>` #make filesystem 
+-t ext4 #make filesystem in ext4
+
+there are also aliases for mkfs such as mkfs.ext4 for ext4
+
+`ls /usr/sbin/mkfs*` #gives a list of all supported filesystems by way of aliases (only if aliases exist though)
+
+NOTE: do not put a file systems to a swap drive.
+Swap Paritions
+mkswap /dev/<swap>
+swapon /dev/<swap>
+
+Changing file systesm from ext to xfs, for examples requires a reformat
+
+but changing ext2->ext3 is just a driver change so it is not destructive
+
+/usr/sbin/tune2fs used to tweak ext file system (i.e. assign a label)
+
+there are utilities in /usr/sbin/*e2* && /usr/sbin/*xfs* to make changes or do actions on file systems.
+
+labels are useful for mounts (keep track of whats what)
+
+`mount /dev/<block dev> /path/to/mount` #mounting partitions
+
+mounts are temporary and don't persist after reboot
+
+umount will unmount them
+
+to make them persitent we use fstab:
+
+cat /etc/fstab #view the file system table
+vim /etc/fstab #edit the file system table
+
+You can identify a disk in different ways. UUID is the best way. `blkid` shows uuid or `lsblk -v`. You can also identify them by device 
+name {i.e. /dev/<block device>}, or you can use labels.
+
+identity        location        filesystem      filesystem-options      {0 not used or 1 used for backup during dump}   {0-X, order of
+when the file system will be checked 0 drives before boot, 1 checks disk after boot}
+
+ex:
+label=private   /mnt/private    xfs     defaults        0 1
+
+Labels are convenient but dangerous
+
+now that they are in fstab, they no longer require admin privileges to mount as they are part of the filesystem
+
+`df -h`
+shows devices/mounts and other data along with size in human readable format
+ 
+#########################################################################################################################################
+##################################################### Logical Volume Manager(LVM) #######################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Filesystem Hierarchy Standard(FHS) ################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Editing Files with vi #############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Working with files ################################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Locating files ####################################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Searching with grep ###############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Manipulating text #################################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Managing Kernel Modules ###########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Managing the Linux Boot Process ###################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Graphical User Interfaces #########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Managing Services with systemd ####################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Managing Services with sysVinit ###################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Troubleshooting Services ##########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Configuring Hardware ##############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Supporting Printers ###############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Understanding TCP/IP ##############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Configure Networking ##############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Troubleshooting Network Connections ###############################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Managing Software with Apt ########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Managing Software with Yum ########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Building from Source ##############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Linux Security Best Practices #####################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Securing Apps with SELinux ########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Securing Apps with AppArmor #######################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Filtering Traffic with Firewalld ##################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Filtering Traffic with iptables ###################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Backup and Restore data ###########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Configuring Bash ##################################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Writing a Bash script #############################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Scheduling tasks ##################################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Version Control with Git ##########################################################
+#########################################################################################################################################
+
+
+
+#########################################################################################################################################
+##################################################### Installing CentOS #################################################################
+#########################################################################################################################################
+
+Centos is free and based on red hat enterprise linux
+
+(stood for community enterprise operating system)
+
+This is outdated for the 004 Linux+ exam as Centos is now a rolling distro thanks to IBM
+Rocky Linux is the NEW equivalent of what CentOS was
+
+This is common to find in commercial operations
+
+CentOS has low requirements but it isn't the best standard user experience
+
+You can download a DVD ISO or the Minimal ISO
+
+You can write an ISO with the dd command
+
+From windows you will likely user Rufus or Etcher
+
+If you are flashing a USB key, this is a destructive process
+
+version numbers are YYMM
+
+In etcher, 
+        select the image
+                select the device
+                        flash the device
+
+Installation:
+        You can select to install CentOS or check the media & install (troubleshooting is there too)
+        This is run in 4:3 until it figures out your hardware
+        Testing is good as it looks for corruption
+        It will probe for a graphical solution and it will either go to GUI or stay in CLI depending on what it finds
+                Ask for language and then locale information
+                You can change the network, kdump, security policy, etc. make sure to apply changes before hitting done
+                You can select the installation Destination
+                        -here you can manually configure partitions
+                        -you can shrink a windows partition to dual boot
+                        -etc.
+                        -also this is your best chance to encrypt the machine.
+                        -Manual partitioning will let you allocate a partition for boot, swap, root, home, and so on
+                        -A common formula for swap is 1.5x
+                        -You can choose a standard partition, LVM, etc. You can encrypt the disk and all that from here
+                        -You can choose the format type (XFS, EXT4, and so on)
+                        -These settings are on a per-partition basis so make sure you change accordingly
+                        -You can add whatever mount points you need
+                        -You can assign labels to partitions which can be useful
+                        -When done you will get a notice on all the changes that will be made
+                                -make sure you apply needed changes for the chosen security policy
+
+        Post install, you will need to do some housekeeping
+
+        You will have to accept the license and you will have a chance to configure networking 
+
+        Now you should do some system updates
+
+        `sudo yum update`
+        If you get the yum lock error
+                its likely the utility that auto checks updates is running. You can wait OR look for the software update GUI utility
+        You may also get errors related to your security policy SEE SECTION ON SELINUX
+
+#########################################################################################################################################
+##################################################### Installing Ubuntu #################################################################
+#########################################################################################################################################
+
+Canonical makes the Ubuntu distro based on the debian testing branches.
+
+Debian is stable
+
+Ubuntu is stable
+
+Ubuntu server is CLI only
+
+Version numbers are YY.MM.MinorVersion (LTS = Long Term Support)
+
+Desktop needs a 2GHz 2-core cpu
+                2 Gb RAM
+                25GB storage
+                VGA capable of 1024*768 resolution
+                CD/DVD or USB for media installation
+                Internet Access is helpful
+
+Server needs    300MHz x86 processor
+                256MiB RAM
+                1.5GB of disk
+                GPU or monitor cable capable of 640*480
+                CD/DVD or USB
+
+Xubuntu and Lubuntu are light weight alternatives
+Kubuntu is a KDE alternative
+
+You will need to make an installation media
+        Choose the type of Ubuntu you want
+        You can use Rufus on windows
+        You can also use Balena Etcher on any OS
+                Select the .iso image
+                        Select the usb key to flash
+                                Flash the image
+Backup all data to be safe even if doing a dual boot.
+
+Enter BIOS and boot from USB key
+        It should boot into the gui
+                it is trying to detect your hardware and this may fail resulting is massive zoom, missing gui, etc.
+        Now you can try Ubuntu or just install it. 
+        select your keyboard
+        You can choose a normal install or minimal install
+        You can download updates while installing if your networking is setup. This can be helpful
+        You can also select to install 3rd party software for graphics and wifi hardware (Not GPL compliant)
+        Next screen ask what you want to do with your hard drive.
+        Erase entire disk to burn and start over
+                You can also select encryption and LVM 
+
+        You can also custom format the disk to your liking
+        After you move forward (which is destructive)
+        you can set locale information and create your user
+
+        After install, make sure your hardware is properly detected.
+        run `sudo apt update` and `sudo apt upgrade` to get everything updated

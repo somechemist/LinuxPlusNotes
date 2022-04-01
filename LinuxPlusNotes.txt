@@ -3,7 +3,12 @@
 //////////////////////////////////////03-28-2021/////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-*Based on ITProTV*
+Follows CBNUGGETS, YOUTUBE VIDEOS, CERT GUIDE, ITPROTV AND UNIX LINUX SYSTEM ADMINISTRATION HANDBOOK
+
+#NOTE: These notes are my own. You may find that write things in a way that I can understand but may not work for you. Please find 
+other content to help you study and I continue to propogate these notes.
+
+#NOTE: For some commands, I prefer other options (adduser for example), but I left that out in favor of following the study material here
 
 Commands will generally be shown as `command <input>`
 Often, commands will be shown in a basic form with their switches below them
@@ -333,7 +338,63 @@ shows devices/mounts and other data along with size in human readable format
 ##################################################### Logical Volume Manager(LVM) #######################################################
 #########################################################################################################################################
 
+LVM makes it easier to change filesystems after data has been added to them.
 
+Most distros support LVM
+
+Most have it installed
+
+You can choose LVM at installation or set it up
+
+lvm2 is the package you need to ensure you have before you set it up
+
+LVM expects you to have a partitioned disk
+
+`lsblk`
+
+The partitions do not need to be formatted
+
+LVMs has physical volumes, volume groups, and logical volumes
+
+You bring physical disk into lvm as physical volumes
+then you create a volume group of all these physical volumes (combines them together)
+then you can separate chunks of the volume group into logical volumes
+
+`pvcreate /dev/<block device> /dev/<block device2>` #Create physical volume with adding physical disk(s) to the physical volume
+`pvdisplay`
+`pvs` #short summary
+
+`vgcreate volumeGroupName` #must have a logical name to be mapped to (device id (lvm mapper {this will now be in 
+                                /dev/mapper/volumeGroupName or something similar}))
+`vgdisplay`
+`vgs` #short summary
+
+`lvcreate -L 150G volumeGroupName -n LogicalVolumeName`
+-L 1500G #size (1500 gigs example)
+-n <name> #name
+`lvdisplay`
+`lvs`
+
+You can format and mount the logical volumes like any physical disk. You still need to add these to fstab. Make sure you use 
+/dev/mapper/<name> instead of any shortcuts as the mapper service may not start fast enough during bootup
+
+To add a new disk:
+
+create the partition on disk
+
+`pvcreate /dev/<block device>`
+`vgextend <volume group> /dev/<block device>`
+`lvresize -L +1T /dev/<volGrp>/<existing LV>` #file system will not recognize this yet.
+#ext4 example
+`resize2fs /dev/<volGrp>/<LogVol>` # using no other options it expands this to all available space. 
+
+`pvscan` unmount and move to another system
+
+to remove,
+`umount` the storage
+`lvremove </path/to/lv>` #remove the logical volumes
+`vgremove </path/to/vg>` #remove volume groups
+`pvremove /dev/<block device1> /dev/<block device2>` 
 
 #########################################################################################################################################
 ##################################################### Filesystem Hierarchy Standard(FHS) ################################################
@@ -1121,8 +1182,11 @@ lsof
 
 pgrep
 
-pkill
+`pkill` #
 
-dmidecode
 
-lshw
+
+`dmidecode` #Shows hardware information for the machine
+
+
+`lshw` #shows a vast amount of hardware information

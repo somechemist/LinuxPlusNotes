@@ -95,7 +95,57 @@ has write permissions for the sales group, it will fail.
 
 --Normal Permissions--
 
-PENDING NOTES TRANSFER
+ls #used to list files
+-l #gives the long form of permissions
+ex.
+drwxrwxrwx 2    user1 group1      4096             Mar 1 15:15        myDirectory
+-rwx-w----+ 1    user2 group2      320              Mar 1 15:15        file1.txt
+permissions X   owner group     file-size       date  time         name
+usergroupother
+
+Directories have to have executable permissions as they need to be openable.
+
+to change permissions:
+chmod [permissions] <file/Dir>
+u = user
+g = group
+o = other
+4 OR r = read
+2 OR w = write
+1 OR x = execute
+
+chmod g+w,o+r file1.txt #gives(appends) group write perms and the other read perms
+chmod 755 file1.txt #gives(sets) the user all permissions, the group read and execute and the other read an execute permissions
+chmod +x file1.txt #gives(appends) everyone execute permissions
+
+umask defines the default permissions
+its permissions schema is different and basically the inverse of 76543210 for normal files
+
+umask:
+7 = no perms
+6 = execute only
+5 = write only
+4 = write and execute only
+3 = read only
+2 = read and execute only
+1 = read and write only
+0 = all permissions
+
+umask 002 # user and group get all permissions while other gets read and execute only
+
+
+The owner of a file is the person who makes the file. 
+
+By default it will be made with the group used to make it (you can use `newgrp <group>` to change that group prior to making the file)
+
+if you need to change the ownership
+
+chgrp <group> file.txt # can change the group
+chown <user>:<group> file.txt #chang the user and group of a file
+chown :<group> file.txt # since user was left alone, changes the group
+chown -R <user> myDir/* #recursively changes the owner of files and directories within a directory
+
+NOTE: When you make a tarball, it preserves the permissions
 
 --Advanced Permissions--
 
